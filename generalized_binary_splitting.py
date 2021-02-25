@@ -1,14 +1,19 @@
 import math
-from bisect import bisect_left
 from typing import Any, Callable, List, Tuple
 
 
 def generalized_binary_splitting(
     pred: Callable[[List[Any],], bool],
-    candidates: List[Any],
+    items: List[Any],
     d: int
 ) -> List[Any]:
-    """Generalized binary-splitting algorithm for group testing
+    """Hwang's adaptive generalized binary splitting algorithm for group testing
+    
+    The generalised binary-splitting algorithm is an essentially-optimal
+    adaptive group-testing algorithm that finds d or fewer defectives among
+    n items.
+    
+    This implemenation follows the description of the algorithm here:
     https://en.wikipedia.org/wiki/Group_testing#Generalised_binary-splitting_algorithm
 
     Arguments
@@ -17,31 +22,48 @@ def generalized_binary_splitting(
         Test function. Takes a list of items, and returns True if
         _any_ of the items are defective, and False otherwise.
     candidates : list
-        Candidate pool
+        Candidate pool. Note, the items must be hashable.
     d : int
         Upper bound on the number of defective items in the pool.
+       
+    Citations
+    ---------
+    Hwang, Frank K. "A method for detecting all defective members in a population
+    by group testing." Journal of the American Statistical Association
+    67.339 (1972): 605-608.
 
     Returns
     -------
     defective : List
         list of defective items
     """
-    n = len(candidates)
-    if n == 1 or n <= 2*d - 2:
-        # test items individually
-        return [c for c in candidates if pred([c])]
-    else:
-        l = n - d + 1
-        alpha = math.floor(math.log2(l / 2))
-        test_set = candidates[:2**alpha]
-        remaining_set = candidates[2**alpha:]
-        if pred(test_set):
-            defect, nondefective = _binary_search(pred, test_set)
-            remaining = list(set(candidates) - {defect} - set(nondefective))
-            return [defect] + generalized_binary_splitting(pred, remaining, d-1)
-        else:
-            return generalized_binary_splitting(pred, remaining_set, d)
+    defects = []
+    unsure = list(items)
 
+    while len(unsure) > 0:
+        n = len(unsure)
+
+        if n == 1 or n <= 2*d - 2:
+            # test items individually
+            for c in unsure:
+                if pred([c]):
+                    defects.append(c)
+            return defects
+
+        else:
+            l = n - d + 1
+            alpha = math.floor(math.log2(l / 2))
+            test_set = unsure[:2**alpha]
+            remaining_set = unsure[2**alpha:]
+            if pred(test_set):
+                single_defect, confirmed_okay = _binary_search(pred, test_set)
+                
+                defects.append(single_defect)
+                unsure = list(set(unsure) - {single_defect} - set(confirmed_okay))
+            else:
+                unsure = remaining_set                
+
+    raise RuntimeError()
 
 def _binary_search(
     pred: Callable[[List[Any],], bool],
@@ -66,6 +88,34 @@ def _binary_search(
     return candidates[start], nondefective
 
 
+def main():
+    import subprocess
+    import functools
+    with open("/home/mcgibbon/projects/nixpkgs/attrs.txt") as f:
+        attrs = [a.strip() for a in f.readlines()]
+    
+    @functools.lru_cache()
+    def test_chunk(chunk) -> bool:
+        print(f"Testing {len(chunk)} attrs")
+        cmd = "nix run -f /home/mcgibbon/projects/nixpkgs-hammering -c nixpkgs-hammer -f ~/projects/nixpkgs " + " ".join(chunk)
+        p = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        return p.returncode == 1
+    
+    def pred(attrs):  
+        def chunker(seq, size):
+            return (seq[pos:pos + size] for pos in range(0, len(seq), size))
+
+        for chunk in chunker(attrs, 1000):
+            if test_chunk(tuple(chunk)):
+                print("  Got a failure")
+                return True
+        print("  No failures")
+        return False
+
+    results = generalized_binary_splitting(pred, attrs, d=100) 
+    print(results)
+
+
 def test_binary_search():
     candidates = list(range(100))
     for c in candidates:
@@ -74,18 +124,18 @@ def test_binary_search():
 
 
 def test_generalized_binary_splitting():
-    def pred(xs):
-        # print("testing", xs)
-        return (0 in xs) or (32 in xs)
+    d = 5
+    N = 100000
+    n_calls = 0
 
-    candidates = list(range(100))
+    def pred(xs):
+        nonlocal n_calls
+        n_calls += 1
+        return any(x < d for x in xs)
+
+    candidates = list(range(N))
     import random
     random.shuffle(candidates)
-
-    assert sorted(generalized_binary_splitting(pred, candidates, d=2)) == [0, 32]
-
-
-if __name__ == "__main__":
-    test_binary_search()
-    for i in range(100):
-        test_generalized_binary_splitting()
+    
+    assert sorted(generalized_binary_splitting(pred, candidates, d=2)) == list(range(d))
+    print(n_calls)
