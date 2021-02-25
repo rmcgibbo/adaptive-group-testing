@@ -5,7 +5,7 @@ T = TypeVar("T")
 
 
 def generalized_binary_splitting(
-    pred: Callable[[List[T]], bool], items: List[T], d: int
+    pred: Callable[[List[T]], bool], items: List[T], d: int, verbose: bool = False,
 ) -> List[T]:
     """Hwang's adaptive generalized binary splitting algorithm for group testing
 
@@ -42,9 +42,15 @@ def generalized_binary_splitting(
 
     while len(unsure) > 0:
         n = len(unsure)
+    
+        if verbose:
+            print(f"Unsure: {n}")
+            print(f"Defects: {len(defects)}")
 
         if n == 1 or n <= 2 * d - 2:
-            # test items individually
+            if verbose:
+                print(f"Switching to individual testing for remaining {n} candidates")
+
             for c in unsure:
                 if pred([c]):
                     defects.append(c)
@@ -62,6 +68,9 @@ def generalized_binary_splitting(
                 unsure = list(set(unsure) - {single_defect} - set(confirmed_okay))
             else:
                 unsure = unsure[2 ** alpha :]
+        
+        if len(unsure) == n:
+            raise RuntimeError()
 
     raise RuntimeError()
 
