@@ -88,34 +88,6 @@ def _binary_search(
     return candidates[start], nondefective
 
 
-def main():
-    import subprocess
-    import functools
-    with open("/home/mcgibbon/projects/nixpkgs/attrs.txt") as f:
-        attrs = [a.strip() for a in f.readlines()]
-    
-    @functools.lru_cache()
-    def test_chunk(chunk) -> bool:
-        print(f"Testing {len(chunk)} attrs")
-        cmd = "nix run -f /home/mcgibbon/projects/nixpkgs-hammering -c nixpkgs-hammer -f ~/projects/nixpkgs " + " ".join(chunk)
-        p = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        return p.returncode == 1
-    
-    def pred(attrs):  
-        def chunker(seq, size):
-            return (seq[pos:pos + size] for pos in range(0, len(seq), size))
-
-        for chunk in chunker(attrs, 1000):
-            if test_chunk(tuple(chunk)):
-                print("  Got a failure")
-                return True
-        print("  No failures")
-        return False
-
-    results = generalized_binary_splitting(pred, attrs, d=100) 
-    print(results)
-
-
 def test_binary_search():
     candidates = list(range(100))
     for c in candidates:
