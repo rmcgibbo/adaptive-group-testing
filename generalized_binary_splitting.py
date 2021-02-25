@@ -65,6 +65,7 @@ def generalized_binary_splitting(
 
     raise RuntimeError()
 
+    
 def _binary_search(
     pred: Callable[[List[Any],], bool],
     candidates: List[Any]
