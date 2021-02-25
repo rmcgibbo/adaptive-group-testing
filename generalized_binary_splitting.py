@@ -1,18 +1,18 @@
 import math
-from typing import Any, Callable, List, Tuple
+from typing import Any, Callable, List, Tuple, TypeVar
+
+T = TypeVar("T")
 
 
 def generalized_binary_splitting(
-    pred: Callable[[List[Any],], bool],
-    items: List[Any],
-    d: int
-) -> List[Any]:
+    pred: Callable[[List[T]], bool], items: List[T], d: int
+) -> List[T]:
     """Hwang's adaptive generalized binary splitting algorithm for group testing
-    
+
     The generalised binary-splitting algorithm is an essentially-optimal
     adaptive group-testing algorithm that finds d or fewer defectives among
     n items.
-    
+
     This implemenation follows the description of the algorithm here:
     https://en.wikipedia.org/wiki/Group_testing#Generalised_binary-splitting_algorithm
 
@@ -25,7 +25,7 @@ def generalized_binary_splitting(
         Candidate pool. Note, the items must be hashable.
     d : int
         Upper bound on the number of defective items in the pool.
-       
+
     Citations
     ---------
     Hwang, Frank K. "A method for detecting all defective members in a population
@@ -43,7 +43,7 @@ def generalized_binary_splitting(
     while len(unsure) > 0:
         n = len(unsure)
 
-        if n == 1 or n <= 2*d - 2:
+        if n == 1 or n <= 2 * d - 2:
             # test items individually
             for c in unsure:
                 if pred([c]):
@@ -53,30 +53,30 @@ def generalized_binary_splitting(
         else:
             l = n - d + 1
             alpha = math.floor(math.log2(l / 2))
-            test_set = unsure[:2**alpha]
-            remaining_set = unsure[2**alpha:]
+            test_set = unsure[: 2 ** alpha]
+
             if pred(test_set):
                 single_defect, confirmed_okay = _binary_search(pred, test_set)
-                
+
                 defects.append(single_defect)
                 unsure = list(set(unsure) - {single_defect} - set(confirmed_okay))
             else:
-                unsure = remaining_set                
+                unsure = unsure[2 ** alpha :]
 
     raise RuntimeError()
 
-    
+
 def _binary_search(
-    pred: Callable[[List[Any],], bool],
-    candidates: List[Any]
-) -> Tuple[Any, List[Any]]:
+    pred: Callable[[List[T]], bool],
+    candidates: List[T],
+) -> Tuple[T, List[T]]:
 
     mid = 0
     start = 0
     end = len(candidates)
     nondefective = []
 
-    while (start < end - 1):
+    while start < end - 1:
         mid = (start + end) // 2
 
         test_set = candidates[start:mid]
