@@ -39,6 +39,8 @@ def generalized_binary_splitting(
     """
     defects = []
     unsure = list(items)
+    if len(unsure) == 0:
+        return []
 
     while len(unsure) > 0:
         n = len(unsure)
